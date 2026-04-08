@@ -46,6 +46,9 @@ export default function AdminBackoffice() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [msg, setMsg] = useState('');
+  const [etablissements, setEtablissements] = useState<any[]>([]);
+  const [quizData, setQuizData] = useState<any[]>([]);
+  const [filieres, setFilieres] = useState<any[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('yira_token');

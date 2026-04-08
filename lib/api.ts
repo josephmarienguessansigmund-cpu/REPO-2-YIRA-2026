@@ -61,6 +61,14 @@ export const endpoints = {
   admin: {
     dashboard: '/admin/dashboard',
     beneficiaires: '/carte/debug/beneficiaires',
+    conseillers: '/admin/conseillers',
+    etablissements: '/admin/etablissements',
+    filieres: '/admin/filieres',
+    metiers: '/admin/metiers',
+    partenaires: '/admin/partenaires',
+    fonctionnaires: '/admin/fonctionnaires',
+    quiz: '/admin/quiz',
+    pays: '/admin/pays',
   },
   carte: {
     get: (code: string) => `/carte/${code}`,
