@@ -1,45 +1,65 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { api, endpoints } from '@/lib/api';
 
 export default function EspaceJeune() {
   const router = useRouter();
   const [tab, setTab] = useState('accueil');
+  const [form, setForm] = useState({
+    prenom: '', nom: '', telephone: '', date_naissance: '',
+    niveau_etude: 'bepc', district: 'Abidjan', genre: 'homme',
+  });
+  const [codeYira, setCodeYira] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [codeRecherche, setCodeRecherche] = useState('');
+
+  const inscrire = async () => {
+    setLoading(true);
+    setMessage('');
+    try {
+      const data = await api.post(endpoints.auth.inscription, {
+        ...form,
+        consentement_rgpd: true,
+        canal_inscription: 'web',
+        country_code: 'CI',
+      });
+      setCodeYira(data.code_yira ?? data.data?.code_yira ?? '');
+      setMessage('Inscription reussie !');
+      setTab('code');
+    } catch (err: any) {
+      setMessage('Erreur : ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/')} className="text-gray-400 hover:text-gray-600 text-sm">← Accueil</button>
+          <button onClick={() => router.push('/')} className="text-gray-400 hover:text-gray-600 text-sm">Accueil</button>
           <div className="w-px h-4 bg-gray-200" />
           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: '#1D9E75' }}>Y</div>
           <div className="font-semibold text-gray-900">Espace Jeune</div>
         </div>
         <div className="text-xs px-3 py-1 rounded-full" style={{ background: '#E1F5EE', color: '#085041' }}>
-          Non connecté
+          YIRA Africa
         </div>
       </header>
 
-      {/* Nav tabs */}
       <div className="bg-white border-b border-gray-100 px-6">
         <div className="flex gap-6 max-w-4xl mx-auto">
           {[
             { id: 'accueil', label: 'Accueil' },
             { id: 'inscription', label: 'Inscription' },
-            { id: 'evaluation', label: 'Évaluation' },
+            { id: 'evaluation', label: 'Evaluation' },
             { id: 'parcours', label: 'Mon Parcours' },
             { id: 'carte', label: 'Ma Carte' },
           ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.id
-                  ? 'border-green-600 text-green-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`py-3 text-sm font-medium border-b-2 transition-colors ${tab === t.id ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500'}`}>
               {t.label}
             </button>
           ))}
@@ -47,11 +67,12 @@ export default function EspaceJeune() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
+
         {tab === 'accueil' && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl p-8 border border-gray-100 text-center">
               <div className="text-5xl mb-4">🎓</div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Bienvenue sur YIRA</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Bienvenue sur YIRA Africa</h1>
               <p className="text-gray-500 mb-8">Votre plateforme d'orientation et d'insertion professionnelle</p>
               <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
                 <button onClick={() => setTab('inscription')} className="p-4 rounded-xl text-white font-medium" style={{ background: '#1D9E75' }}>
@@ -64,8 +85,8 @@ export default function EspaceJeune() {
             </div>
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Évaluation SigmundTest', desc: 'Découvrez votre profil RIASEC', icon: '🧠' },
-                { label: 'Formation CQP/NVQ', desc: 'Trouvez votre filière', icon: '📚' },
+                { label: 'Evaluation SigmundTest', desc: 'Decouvrez votre profil RIASEC', icon: '🧠' },
+                { label: 'Formation CQP/NVQ', desc: 'Trouvez votre filiere', icon: '📚' },
                 { label: 'Insertion emploi', desc: 'Matchez avec 500+ employeurs', icon: '💼' },
               ].map((c) => (
                 <div key={c.label} className="bg-white rounded-xl p-5 border border-gray-100">
@@ -81,61 +102,106 @@ export default function EspaceJeune() {
         {tab === 'inscription' && (
           <div className="bg-white rounded-2xl p-8 border border-gray-100 max-w-lg mx-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Inscription YIRA</h2>
+            {message && (
+              <div className={`p-3 rounded-lg text-sm mb-4 ${message.includes('Erreur') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                {message}
+              </div>
+            )}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-600 mb-1 block">Prénom</label>
-                  <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Kouassi" />
+                  <label className="text-sm text-gray-600 mb-1 block">Prenom</label>
+                  <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Kouassi" value={form.prenom}
+                    onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-sm text-gray-600 mb-1 block">Nom</label>
-                  <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="Yao" />
+                  <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Yao" value={form.nom}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label className="text-sm text-gray-600 mb-1 block">Téléphone</label>
-                <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="+225 07 00 00 00" />
+                <label className="text-sm text-gray-600 mb-1 block">Telephone</label>
+                <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  placeholder="+225 07 00 00 00" value={form.telephone}
+                  onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
               </div>
               <div>
                 <label className="text-sm text-gray-600 mb-1 block">Date de naissance</label>
-                <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.date_naissance}
+                  onChange={(e) => setForm({ ...form, date_naissance: e.target.value })} />
               </div>
               <div>
-                <label className="text-sm text-gray-600 mb-1 block">Niveau d'études</label>
-                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                  <option>Sans diplôme</option>
-                  <option>CEPE</option>
-                  <option>BEPC</option>
-                  <option>BAC</option>
-                  <option>BTS / Licence+</option>
-                  <option>Autre</option>
+                <label className="text-sm text-gray-600 mb-1 block">Genre</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })}>
+                  <option value="homme">Homme</option>
+                  <option value="femme">Femme</option>
+                  <option value="nsp">Je ne souhaite pas repondre</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600 mb-1 block">Niveau d'etudes</label>
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.niveau_etude} onChange={(e) => setForm({ ...form, niveau_etude: e.target.value })}>
+                  <option value="sans">Sans diplome</option>
+                  <option value="cepe">CEPE</option>
+                  <option value="bepc">BEPC</option>
+                  <option value="bac">BAC</option>
+                  <option value="bts_licence">BTS / Licence+</option>
+                  <option value="autre">Autre</option>
                 </select>
               </div>
               <div>
                 <label className="text-sm text-gray-600 mb-1 block">District</label>
-                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })}>
                   <option>Abidjan</option>
-                  <option>Bouaké</option>
+                  <option>Bouake</option>
                   <option>Yamoussoukro</option>
-                  <option>San-Pédro</option>
+                  <option>San-Pedro</option>
+                  <option>Daloa</option>
+                  <option>Korhogo</option>
                   <option>Autre</option>
                 </select>
               </div>
-              <button className="w-full py-3 rounded-xl text-white font-medium mt-2" style={{ background: '#1D9E75' }}>
-                Créer mon compte YIRA
+              <button onClick={inscrire} disabled={loading}
+                className="w-full py-3 rounded-xl text-white font-medium mt-2 disabled:opacity-50"
+                style={{ background: '#1D9E75' }}>
+                {loading ? 'Inscription en cours...' : 'Creer mon compte YIRA'}
               </button>
             </div>
+          </div>
+        )}
+
+        {tab === 'code' && (
+          <div className="bg-white rounded-2xl p-8 border border-gray-100 max-w-lg mx-auto text-center">
+            <div className="text-5xl mb-4">🎉</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Inscription reussie !</h2>
+            <p className="text-gray-500 text-sm mb-6">Votre code YIRA unique :</p>
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="font-mono text-2xl font-bold text-green-700">{codeYira}</div>
+            </div>
+            <p className="text-xs text-gray-400 mb-6">Conservez ce code — il vous permettra de reprendre votre evaluation sur n'importe quel canal</p>
+            <button onClick={() => setTab('evaluation')} className="w-full py-3 rounded-xl text-white font-medium" style={{ background: '#1D9E75' }}>
+              Demarrer mon evaluation
+            </button>
           </div>
         )}
 
         {tab === 'evaluation' && (
           <div className="bg-white rounded-2xl p-8 border border-gray-100 max-w-lg mx-auto text-center">
             <div className="text-4xl mb-4">🧠</div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Évaluation SigmundTest®</h2>
-            <p className="text-gray-500 text-sm mb-6">Entrez votre code YIRA pour reprendre votre évaluation</p>
-            <input className="w-full border border-gray-200 rounded-lg px-4 py-3 text-center font-mono text-lg mb-4" placeholder="YIR-CI-2026-XXXXX" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Evaluation SigmundTest</h2>
+            <p className="text-gray-500 text-sm mb-6">Entrez votre code YIRA</p>
+            <input className="w-full border border-gray-200 rounded-lg px-4 py-3 text-center font-mono text-lg mb-4"
+              placeholder="YIR-CI-2026-XXXXX" value={codeRecherche}
+              onChange={(e) => setCodeRecherche(e.target.value)} />
             <button className="w-full py-3 rounded-xl text-white font-medium" style={{ background: '#185FA5' }}>
-              Reprendre l'évaluation
+              Reprendre l'evaluation
             </button>
             <div className="mt-4 text-xs text-gray-400">Pas de code ? Inscrivez-vous d'abord</div>
           </div>
@@ -146,26 +212,19 @@ export default function EspaceJeune() {
             <h2 className="text-xl font-bold text-gray-900 mb-6">Mon Parcours YIRA</h2>
             <div className="space-y-4">
               {[
-                { etape: 'Inscription', statut: 'done', date: '08/04/2026' },
-                { etape: 'Évaluation SigmundTest', statut: 'active', date: 'En cours' },
-                { etape: 'Restitution conseiller', statut: 'pending', date: 'À venir' },
-                { etape: 'Formation CQP', statut: 'pending', date: 'À venir' },
-                { etape: 'Certification', statut: 'pending', date: 'À venir' },
-                { etape: 'Insertion emploi', statut: 'pending', date: 'À venir' },
-                { etape: 'Suivi 12 mois', statut: 'pending', date: 'À venir' },
+                { etape: 'Inscription', statut: 'done' },
+                { etape: 'Evaluation SigmundTest', statut: 'active' },
+                { etape: 'Restitution conseiller', statut: 'pending' },
+                { etape: 'Formation CQP', statut: 'pending' },
+                { etape: 'Certification', statut: 'pending' },
+                { etape: 'Insertion emploi', statut: 'pending' },
+                { etape: 'Suivi 12 mois', statut: 'pending' },
               ].map((e, i) => (
                 <div key={i} className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                    e.statut === 'done' ? 'bg-green-100 text-green-700' :
-                    e.statut === 'active' ? 'bg-blue-100 text-blue-700' :
-                    'bg-gray-100 text-gray-400'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${e.statut === 'done' ? 'bg-green-100 text-green-700' : e.statut === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
                     {e.statut === 'done' ? '✓' : i + 1}
                   </div>
-                  <div className="flex-1">
-                    <div className={`text-sm font-medium ${e.statut === 'pending' ? 'text-gray-400' : 'text-gray-900'}`}>{e.etape}</div>
-                    <div className="text-xs text-gray-400">{e.date}</div>
-                  </div>
+                  <div className="text-sm font-medium text-gray-900">{e.etape}</div>
                 </div>
               ))}
             </div>
@@ -174,36 +233,17 @@ export default function EspaceJeune() {
 
         {tab === 'carte' && (
           <div className="max-w-sm mx-auto">
-            <div className="rounded-2xl p-6 text-white mb-6" style={{ background: 'linear-gradient(135deg, #1D9E75, #085041)' }}>
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <div className="text-xs opacity-70 mb-1">YIRA Africa</div>
-                  <div className="font-bold text-lg">Carte de Compétences</div>
-                </div>
-                <div className="text-2xl">💳</div>
+            <div className="rounded-2xl p-6 text-white mb-6" style={{ background: '#1D9E75' }}>
+              <div className="text-xs opacity-70 mb-1">YIRA Africa</div>
+              <div className="font-bold text-lg mb-8">Carte de Competences</div>
+              <div className="mb-4">
+                <div className="text-xs opacity-70 mb-1">Code YIRA</div>
+                <div className="font-mono text-sm">{codeYira || 'YIR-CI-2026-XXXXX'}</div>
               </div>
-              <div className="mb-6">
-                <div className="text-xs opacity-70 mb-1">Bénéficiaire</div>
-                <div className="font-bold">Kouassi Yao</div>
-              </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-xs opacity-70 mb-1">Code YIRA</div>
-                  <div className="font-mono text-sm">YIR-CI-2026-00142</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs opacity-70 mb-1">Niveau</div>
-                  <div className="font-bold">N2 · BAC</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 text-center">
-              <div className="text-gray-500 text-sm">QR Code de vérification</div>
-              <div className="w-24 h-24 bg-gray-100 rounded-xl mx-auto mt-3 flex items-center justify-center text-3xl">◼</div>
-              <div className="text-xs text-gray-400 mt-2">Scannez pour vérifier les certifications</div>
             </div>
           </div>
         )}
+
       </div>
     </main>
   );
