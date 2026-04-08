@@ -208,8 +208,30 @@ export default function EspaceJeune() {
                 setLoading(true);
                 setMessage('');
                 try {
-                  const data = await api.post(endpoints.evaluation.init, { code_yira: codeRecherche, canal: 'web', country_code: 'CI' });
-                  setMessage('Evaluation initialisee ! Ref: ' + (data.assessment_id ?? data.id ?? 'OK'));
+                  // Recuperer le profil du beneficiaire depuis son code YIRA
+                  let profil: any = null;
+                  try {
+                    profil = await api.get(`/carte/${codeRecherche}`);
+                  } catch {}
+
+                  const niveau = profil?.niveau_etude === 'bts_licence' ? 'N3'
+                    : profil?.niveau_etude === 'bac' ? 'N2' : 'N1';
+
+                  const data = await api.post(endpoints.evaluation.init, {
+                    beneficiaire_id: profil?.beneficiaire_id ?? codeRecherche,
+                    prenom: profil?.prenom ?? 'Beneficiaire',
+                    nom: profil?.nom ?? 'YIRA',
+                    niveau,
+                    signaletique: {
+                      genre: profil?.genre ?? 'nsp',
+                      date_naissance: profil?.date_naissance ?? '2000-01-01',
+                      annees_experience: 0,
+                      niveau_etude: profil?.niveau_etude ?? 'bepc',
+                      type_formation: 'generale',
+                      statut: 'etudiant',
+                    },
+                  });
+                  setMessage('Evaluation initialisee ! ' + (data.nb_questions ?? '') + ' questions - ID: ' + (data.assessment_id ?? 'OK'));
                 } catch (err: any) {
                   setMessage('Erreur : ' + err.message);
                 } finally {
