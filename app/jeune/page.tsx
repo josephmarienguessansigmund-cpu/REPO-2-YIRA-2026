@@ -108,6 +108,7 @@ export default function EspaceJeune() {
                   <option>BEPC</option>
                   <option>BAC</option>
                   <option>BTS / Licence+</option>
+                  <option>Autre</option>
                 </select>
               </div>
               <div>
