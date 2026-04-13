@@ -4,25 +4,11 @@ import { useState } from 'react';
 import { api, endpoints } from '@/lib/api';
 import {
   GraduationCap, Brain, BookOpen, Briefcase, ChevronRight,
-  CheckCircle, ArrowRight, School, Wrench
+  CheckCircle, ArrowRight, School, Wrench, ArrowLeft
 } from 'lucide-react';
 
+type EtapeEval = 'code' | 'filtre' | 'test' | 'resultat';
 type Parcours = 'scolaire' | 'professionnel' | null;
-
-const QUESTIONS_RIASEC = [
-  { id: 1, texte: "J'aime travailler avec mes mains et fabriquer des objets concrets.", type: 'R' },
-  { id: 2, texte: "J'aime analyser des problemes complexes et trouver des solutions logiques.", type: 'I' },
-  { id: 3, texte: "J'aime creer, dessiner ou exprimer mes idees de facon originale.", type: 'A' },
-  { id: 4, texte: "J'aime aider les autres et travailler en equipe.", type: 'S' },
-  { id: 5, texte: "J'aime diriger des projets et convaincre les autres.", type: 'E' },
-  { id: 6, texte: "J'aime organiser des informations, tenir des registres et suivre des procedures.", type: 'C' },
-  { id: 7, texte: "J'aime reparer des machines ou des equipements.", type: 'R' },
-  { id: 8, texte: "J'aime faire des recherches et experimenter.", type: 'I' },
-  { id: 9, texte: "J'aime la musique, le theatre ou les arts visuels.", type: 'A' },
-  { id: 10, texte: "J'aime enseigner ou former des personnes.", type: 'S' },
-  { id: 11, texte: "J'aime lancer des initiatives et prendre des risques calcules.", type: 'E' },
-  { id: 12, texte: "J'aime travailler avec des chiffres et des donnees.", type: 'C' },
-];
 
 const METIERS_SCOLAIRES: Record<string, { filieres: string[]; etablissements: string[]; description: string }> = {
   R: { filieres: ['BT Batiment', 'CAP Maconnerie', 'BT Mecanique Industrielle', 'CAP Electricite'], etablissements: ['CPM BAT Koumassi', 'CAFOP Abidjan', 'INSET Yopougon'], description: 'Profil Realiste — vous etes fait pour les metiers techniques et manuels.' },
@@ -38,7 +24,7 @@ const METIERS_PRO: Record<string, { metiers: string[]; employeurs: string[]; fil
   I: { metiers: ['Developpeur web', 'Technicien reseau', 'Analyste financier', 'Laborantin'], employeurs: ['Orange CI', 'MTN CI', 'SGBCI', 'CHU Abidjan'], filiere: 'A', description: 'Profil Investigateur — fort potentiel dans les secteurs tech et scientifique.' },
   A: { metiers: ['Graphiste', 'Community manager', 'Journaliste', 'Createur de contenu'], employeurs: ['Havas CI', 'RTI', 'Jeune Afrique', 'Startups tech'], filiere: 'B', description: 'Profil Artistique — fort potentiel dans la communication et les industries creatives.' },
   S: { metiers: ['Charge RH', 'Conseiller clientele', 'Infirmier', 'Formateur'], employeurs: ['Orange CI', 'MTN CI', 'CHU', 'ONGs internationales'], filiere: 'B', description: 'Profil Social — fort potentiel dans les RH, la sante et les services.' },
-  E: { metiers: ['Commercial terrain', 'Chef de projet', 'Responsable agence', 'Entrepreneur'], employeurs: ['SIFCA', 'Nestl CI', 'CFAO', 'BICICI'], filiere: 'A', description: 'Profil Entrepreneur — fort potentiel dans le commerce et le management.' },
+  E: { metiers: ['Commercial terrain', 'Chef de projet', 'Responsable agence', 'Entrepreneur'], employeurs: ['SIFCA', 'Nestle CI', 'CFAO', 'BICICI'], filiere: 'A', description: 'Profil Entrepreneur — fort potentiel dans le commerce et le management.' },
   C: { metiers: ['Comptable', 'Assistant de direction', 'Agent de microfinance', 'Caissier principal'], employeurs: ['ADVANS CI', 'Baobab', 'BNP Paribas CI', 'NSIA'], filiere: 'B', description: 'Profil Conventionnel — fort potentiel dans la finance et l administration.' },
 };
 
@@ -51,23 +37,21 @@ const FILIERES_INSERTION: Record<string, { label: string; color: string; bg: str
 export default function EspaceJeune() {
   const router = useRouter();
   const [tab, setTab] = useState('accueil');
-  const [parcours, setParcours] = useState<Parcours>(null);
   const [form, setForm] = useState({ prenom: '', nom: '', telephone: '', date_naissance: '', niveau_etude: 'bepc', district: 'Abidjan', genre: 'homme' });
   const [codeYira, setCodeYira] = useState('');
-  const [codeRecherche, setCodeRecherche] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [etapeEval, setEtapeEval] = useState<'filtre' | 'test' | 'resultat'>('filtre');
+
+  // Evaluation state
+  const [etapeEval, setEtapeEval] = useState<EtapeEval>('code');
+  const [codeRecherche, setCodeRecherche] = useState('');
+  const [parcours, setParcours] = useState<Parcours>(null);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [assessmentId, setAssessmentId] = useState<number | null>(null);
   const [qIndex, setQIndex] = useState(0);
   const [reponses, setReponses] = useState<Record<string, number>>({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 });
   const [profilDominant, setProfilDominant] = useState('');
-
-  const S = {
-    card: { background: '#fff', borderRadius: 16, border: '1px solid #E5EDE9', padding: 24 },
-    input: { width: '100%', border: '1px solid #E5EDE9', borderRadius: 8, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box' as const },
-    label: { fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6, display: 'block' },
-    tabBtn: (active: boolean) => ({ padding: '16px 0', fontSize: 13, fontWeight: active ? 600 : 400, color: active ? '#1D9E75' : '#6B8F7A', background: 'none', border: 'none', borderBottom: active ? '2px solid #1D9E75' : '2px solid transparent', cursor: 'pointer' }),
-  };
+  const [nbQuestions, setNbQuestions] = useState(0);
 
   const inscrire = async () => {
     setLoading(true);
@@ -83,11 +67,41 @@ export default function EspaceJeune() {
     }
   };
 
+  const validerCode = async () => {
+    if (!codeRecherche.trim()) return;
+    setEtapeEval('filtre');
+  };
+
+  const lancerTest = async (choixParcours: Parcours) => {
+    setParcours(choixParcours);
+    setLoading(true);
+    setMessage('');
+    try {
+      const niveau = form.niveau_etude === 'bts_licence' ? 'N3' : form.niveau_etude === 'bac' ? 'N2' : 'N1';
+      const data = await api.post(endpoints.evaluation.init, {
+        prenom: form.prenom || 'Beneficiaire',
+        nom: form.nom || 'YIRA',
+        niveau,
+      });
+      setAssessmentId(data.assessment_id);
+      setQuestions(data.questions ?? []);
+      setNbQuestions(data.nb_questions ?? 0);
+      setQIndex(0);
+      setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 });
+      setEtapeEval('test');
+    } catch (err: any) {
+      setMessage('Erreur : ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const repondre = (valeur: number) => {
-    const q = QUESTIONS_RIASEC[qIndex];
-    const newReponses = { ...reponses, [q.type]: reponses[q.type] + valeur };
+    const q = questions[qIndex];
+    const dim = q?.label_question?.includes('RIASEC') ? detecterDimension(q.label_question) : 'S';
+    const newReponses = { ...reponses, [dim]: (reponses[dim] ?? 0) + valeur };
     setReponses(newReponses);
-    if (qIndex < QUESTIONS_RIASEC.length - 1) {
+    if (qIndex < questions.length - 1) {
       setQIndex(qIndex + 1);
     } else {
       const dominant = Object.entries(newReponses).sort((a, b) => b[1] - a[1])[0][0];
@@ -96,13 +110,37 @@ export default function EspaceJeune() {
     }
   };
 
-  const scoreTotal = Object.values(reponses).reduce((a, b) => a + b, 0);
-  const scoreMax = QUESTIONS_RIASEC.length * 3;
-  const scorePct = Math.round((scoreTotal / scoreMax) * 100);
+  const detecterDimension = (label: string): string => {
+    if (label.includes('[RIASEC]')) {
+      if (label.includes('mains') || label.includes('reparer') || label.includes('physique')) return 'R';
+      if (label.includes('analyser') || label.includes('curieux') || label.includes('recherche')) return 'I';
+      if (label.includes('creer') || label.includes('artistique') || label.includes('original')) return 'A';
+      if (label.includes('aider') || label.includes('enseigner') || label.includes('social')) return 'S';
+      if (label.includes('diriger') || label.includes('convaincre') || label.includes('commerce')) return 'E';
+      if (label.includes('organiser') || label.includes('precision') || label.includes('procedure')) return 'C';
+    }
+    return 'S';
+  };
+
+  const S = {
+    card: { background: '#fff', borderRadius: 16, border: '1px solid #E5EDE9', padding: 24 },
+    input: { width: '100%', border: '1px solid #E5EDE9', borderRadius: 8, padding: '10px 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box' as const },
+    label: { fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6, display: 'block' },
+    tabBtn: (active: boolean) => ({ padding: '16px 0', fontSize: 13, fontWeight: active ? 600 : 400, color: active ? '#1D9E75' : '#6B8F7A', background: 'none', border: 'none', borderBottom: active ? '2px solid #1D9E75' : '2px solid transparent', cursor: 'pointer' }),
+  };
+
+  const resetEval = () => {
+    setEtapeEval('code');
+    setParcours(null);
+    setQIndex(0);
+    setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 });
+    setProfilDominant('');
+    setQuestions([]);
+    setMessage('');
+  };
 
   return (
     <main style={{ minHeight: '100vh', background: '#F8FAF9', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Header */}
       <header style={{ background: '#fff', borderBottom: '1px solid #E5EDE9', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={() => router.push('/')} style={{ fontSize: 13, color: '#6B8F7A', background: 'none', border: 'none', cursor: 'pointer' }}>Accueil</button>
@@ -115,11 +153,10 @@ export default function EspaceJeune() {
         <div style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, background: '#E8F8F2', color: '#0F6E56', fontWeight: 500 }}>YIRA Africa</div>
       </header>
 
-      {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #E5EDE9', padding: '0 24px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', gap: 24 }}>
           {[{ id: 'accueil', label: 'Accueil' }, { id: 'inscription', label: 'Inscription' }, { id: 'evaluation', label: 'Evaluation' }, { id: 'parcours', label: 'Mon Parcours' }, { id: 'carte', label: 'Ma Carte' }].map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'evaluation') { setEtapeEval('filtre'); setParcours(null); setQIndex(0); setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }); } }} style={S.tabBtn(tab === t.id)}>{t.label}</button>
+            <button key={t.id} onClick={() => { setTab(t.id); if (t.id === 'evaluation') resetEval(); }} style={S.tabBtn(tab === t.id)}>{t.label}</button>
           ))}
         </div>
       </div>
@@ -142,7 +179,7 @@ export default function EspaceJeune() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
-                { label: 'Evaluation SigmundTest', desc: 'Profil RIASEC en 226 questions', icon: Brain, color: '#185FA5', bg: '#E6F1FB' },
+                { label: 'Evaluation SigmundTest', desc: 'Profil RIASEC scientifique', icon: Brain, color: '#185FA5', bg: '#E6F1FB' },
                 { label: 'Orientation Scolaire', desc: '71 filieres referenciees CI', icon: School, color: '#6B3FA0', bg: '#F0EAF8' },
                 { label: 'Insertion Professionnelle', desc: 'Matching IA 500+ employeurs', icon: Briefcase, color: '#E07B00', bg: '#FEF3E2' },
               ].map(c => { const Icon = c.icon; return (
@@ -193,7 +230,7 @@ export default function EspaceJeune() {
           </div>
         )}
 
-        {/* CODE */}
+        {/* CODE YIRA APRES INSCRIPTION */}
         {tab === 'code' && (
           <div style={{ ...S.card, maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '48px 32px' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#E8F8F2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
@@ -204,8 +241,9 @@ export default function EspaceJeune() {
             <div style={{ background: '#E8F8F2', border: '1px solid #A8DCC8', borderRadius: 12, padding: '20px', marginBottom: 20 }}>
               <div style={{ fontFamily: 'monospace', fontSize: 26, fontWeight: 800, color: '#1D9E75', letterSpacing: 2 }}>{codeYira}</div>
             </div>
-            <p style={{ fontSize: 12, color: '#9DB5AB', marginBottom: 24 }}>Conservez ce code — il vous permet de reprendre sur n'importe quel canal</p>
-            <button onClick={() => { setTab('evaluation'); setEtapeEval('filtre'); }} style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#1D9E75', color: '#fff', fontWeight: 600, fontSize: 15, border: 'none', cursor: 'pointer' }}>
+            <p style={{ fontSize: 12, color: '#9DB5AB', marginBottom: 24 }}>Conservez ce code pour reprendre votre evaluation sur n'importe quel canal</p>
+            <button onClick={() => { setCodeRecherche(codeYira); setTab('evaluation'); setEtapeEval('filtre'); }}
+              style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#1D9E75', color: '#fff', fontWeight: 600, fontSize: 15, border: 'none', cursor: 'pointer' }}>
               Demarrer mon evaluation
             </button>
           </div>
@@ -214,101 +252,109 @@ export default function EspaceJeune() {
         {/* EVALUATION */}
         {tab === 'evaluation' && (
           <div>
+            {/* ETAPE 1 — Saisie du code YIRA */}
+            {etapeEval === 'code' && (
+              <div style={{ ...S.card, maxWidth: 500, margin: '0 auto', padding: '40px 32px' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 14, background: '#E6F1FB', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Brain size={28} color="#185FA5" />
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F2419', marginBottom: 8, textAlign: 'center' }}>Evaluation SigmundTest</h2>
+                <p style={{ fontSize: 14, color: '#6B8F7A', marginBottom: 24, textAlign: 'center' }}>Entrez votre code YIRA pour commencer</p>
+                <input style={{ ...S.input, textAlign: 'center', fontFamily: 'monospace', fontSize: 16, marginBottom: 12, letterSpacing: 1 }}
+                  placeholder="Y-CI-ABJ-2026-XXXXXX" value={codeRecherche} onChange={e => setCodeRecherche(e.target.value)} />
+                {message && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 12, background: '#FCECEA', color: '#C0392B', fontSize: 13 }}>{message}</div>}
+                <button onClick={validerCode} disabled={!codeRecherche.trim()}
+                  style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#185FA5', color: '#fff', fontWeight: 600, fontSize: 15, border: 'none', cursor: 'pointer', opacity: !codeRecherche.trim() ? 0.6 : 1 }}>
+                  Valider mon code
+                </button>
+                <p style={{ fontSize: 12, color: '#9DB5AB', marginTop: 16, textAlign: 'center' }}>
+                  Pas de code ? <button onClick={() => setTab('inscription')} style={{ color: '#1D9E75', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Inscrivez-vous d'abord</button>
+                </p>
+              </div>
+            )}
 
-            {/* ETAPE 1 — Question filtre */}
+            {/* ETAPE 2 — Question filtre */}
             {etapeEval === 'filtre' && (
-              <div style={{ maxWidth: 600, margin: '0 auto' }}>
-                <div style={{ ...S.card, textAlign: 'center', padding: '40px 32px', marginBottom: 20 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, background: '#E6F1FB', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Brain size={28} color="#185FA5" />
-                  </div>
-                  <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F2419', marginBottom: 8 }}>Evaluation SigmundTest RIASEC</h2>
-                  <p style={{ fontSize: 14, color: '#6B8F7A', marginBottom: 8 }}>226 items — 74 a 90 minutes — Profil scientifique certifie</p>
-
-                  {!codeYira && (
-                    <div style={{ marginBottom: 24 }}>
-                      <input style={{ ...S.input, textAlign: 'center', fontFamily: 'monospace', fontSize: 16, marginBottom: 8, letterSpacing: 1 }}
-                        placeholder="Entrez votre code YIRA — ex: YIR-2026-XXXXX"
-                        value={codeRecherche} onChange={e => setCodeRecherche(e.target.value)} />
-                      <div style={{ fontSize: 12, color: '#9DB5AB' }}>Pas de code ? Inscrivez-vous d'abord</div>
-                    </div>
-                  )}
+              <div style={{ maxWidth: 560, margin: '0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                  <button onClick={() => setEtapeEval('code')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B8F7A', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+                    <ArrowLeft size={14} /> Retour
+                  </button>
+                  <div style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#E8F8F2', color: '#1D9E75', fontFamily: 'monospace', fontWeight: 600 }}>{codeRecherche}</div>
                 </div>
 
-                {/* Question filtre */}
                 <div style={{ ...S.card, padding: '32px' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#1D9E75', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Question importante</div>
                   <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0F2419', marginBottom: 8, lineHeight: 1.4 }}>
                     As-tu deja termine tes etudes ou cherches-tu encore ta voie a l'ecole ?
                   </h3>
                   <p style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 28 }}>
-                    Cette reponse determine le type de recommandations que tu recevras apres le test.
+                    Ta reponse determine les recommandations que tu recevras apres le test.
                   </p>
+                  {message && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: '#FCECEA', color: '#C0392B', fontSize: 13 }}>{message}</div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <button onClick={() => { setParcours('scolaire'); setEtapeEval('test'); setQIndex(0); setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }); }}
-                      style={{ padding: '20px 24px', borderRadius: 12, border: '2px solid #E5EDE9', background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <button onClick={() => lancerTest('scolaire')} disabled={loading}
+                      style={{ padding: '20px 24px', borderRadius: 12, border: '2px solid #E5EDE9', background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16, opacity: loading ? 0.6 : 1 }}>
                       <div style={{ width: 48, height: 48, borderRadius: 12, background: '#F0EAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <School size={24} color="#6B3FA0" />
                       </div>
                       <div>
                         <div style={{ fontWeight: 700, color: '#0F2419', fontSize: 15, marginBottom: 4 }}>Je cherche ma voie d'etudes</div>
-                        <div style={{ fontSize: 13, color: '#6B8F7A' }}>Je suis en 3eme, Terminale, ou je veux choisir une filiere de formation</div>
+                        <div style={{ fontSize: 13, color: '#6B8F7A' }}>Je suis en 3eme, Terminale, ou je veux choisir une filiere</div>
                       </div>
                       <ArrowRight size={18} color="#6B3FA0" style={{ marginLeft: 'auto' }} />
                     </button>
 
-                    <button onClick={() => { setParcours('professionnel'); setEtapeEval('test'); setQIndex(0); setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }); }}
-                      style={{ padding: '20px 24px', borderRadius: 12, border: '2px solid #E5EDE9', background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <button onClick={() => lancerTest('professionnel')} disabled={loading}
+                      style={{ padding: '20px 24px', borderRadius: 12, border: '2px solid #E5EDE9', background: '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 16, opacity: loading ? 0.6 : 1 }}>
                       <div style={{ width: 48, height: 48, borderRadius: 12, background: '#FEF3E2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Briefcase size={24} color="#E07B00" />
                       </div>
                       <div>
                         <div style={{ fontWeight: 700, color: '#0F2419', fontSize: 15, marginBottom: 4 }}>Je cherche a entrer dans la vie active</div>
-                        <div style={{ fontSize: 13, color: '#6B8F7A' }}>J'ai un diplome et je cherche un emploi, ou je veux me reconvertir</div>
+                        <div style={{ fontSize: 13, color: '#6B8F7A' }}>J'ai un diplome et je cherche un emploi</div>
                       </div>
                       <ArrowRight size={18} color="#E07B00" style={{ marginLeft: 'auto' }} />
                     </button>
                   </div>
+                  {loading && <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#6B8F7A' }}>Chargement des questions...</div>}
                 </div>
               </div>
             )}
 
-            {/* ETAPE 2 — Test RIASEC */}
-            {etapeEval === 'test' && (
+            {/* ETAPE 3 — Test question par question */}
+            {etapeEval === 'test' && questions.length > 0 && (
               <div style={{ maxWidth: 600, margin: '0 auto' }}>
-                {/* Bandeau parcours */}
-                <div style={{ padding: '10px 16px', borderRadius: 10, marginBottom: 20, background: parcours === 'scolaire' ? '#F0EAF8' : '#FEF3E2', border: `1px solid ${parcours === 'scolaire' ? '#D4B8F0' : '#F5D5A8'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {parcours === 'scolaire' ? <School size={16} color="#6B3FA0" /> : <Briefcase size={16} color="#E07B00" />}
-                  <span style={{ fontSize: 13, fontWeight: 600, color: parcours === 'scolaire' ? '#6B3FA0' : '#E07B00' }}>
-                    Parcours {parcours === 'scolaire' ? 'Orientation Scolaire' : 'Insertion Professionnelle'}
-                  </span>
-                  <button onClick={() => setEtapeEval('filtre')} style={{ marginLeft: 'auto', fontSize: 12, color: '#9DB5AB', background: 'none', border: 'none', cursor: 'pointer' }}>Changer</button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: parcours === 'scolaire' ? '#F0EAF8' : '#FEF3E2', color: parcours === 'scolaire' ? '#6B3FA0' : '#E07B00', fontWeight: 600 }}>
+                    {parcours === 'scolaire' ? 'Orientation Scolaire' : 'Insertion Professionnelle'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6B8F7A' }}>Question {qIndex + 1} / {questions.length}</div>
                 </div>
 
-                {/* Progress */}
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: '#6B8F7A' }}>Question {qIndex + 1} sur {QUESTIONS_RIASEC.length}</span>
-                    <span style={{ fontSize: 12, color: '#1D9E75', fontWeight: 600 }}>{Math.round(((qIndex) / QUESTIONS_RIASEC.length) * 100)}%</span>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: '#6B8F7A' }}>Progression</span>
+                    <span style={{ fontSize: 12, color: '#1D9E75', fontWeight: 600 }}>{Math.round((qIndex / questions.length) * 100)}%</span>
                   </div>
                   <div style={{ height: 6, background: '#E5EDE9', borderRadius: 3 }}>
-                    <div style={{ height: '100%', background: '#1D9E75', borderRadius: 3, width: `${(qIndex / QUESTIONS_RIASEC.length) * 100}%`, transition: 'width 0.3s' }} />
+                    <div style={{ height: '100%', background: '#1D9E75', borderRadius: 3, width: `${(qIndex / questions.length) * 100}%`, transition: 'width 0.3s' }} />
                   </div>
                 </div>
 
                 <div style={{ ...S.card, padding: '32px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#185FA5', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>
-                    SigmundTest RIASEC
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#185FA5', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>
+                    {questions[qIndex]?.label_question?.split(']')[0]?.replace('[', '') || 'QUESTION'}
                   </div>
-                  <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0F2419', marginBottom: 32, lineHeight: 1.5 }}>
-                    {QUESTIONS_RIASEC[qIndex].texte}
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0F2419', marginBottom: 28, lineHeight: 1.6 }}>
+                    {questions[qIndex]?.label_question?.split('] ')[1] || questions[qIndex]?.label_question}
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {[
-                      { val: 3, label: 'Tout a fait d\'accord', color: '#1D9E75', bg: '#E8F8F2' },
-                      { val: 2, label: 'Plutot d\'accord', color: '#185FA5', bg: '#E6F1FB' },
-                      { val: 1, label: 'Plutot pas d\'accord', color: '#E07B00', bg: '#FEF3E2' },
-                      { val: 0, label: 'Pas du tout d\'accord', color: '#C0392B', bg: '#FCECEA' },
+                      { val: 4, label: 'Tout a fait d\'accord', color: '#1D9E75', bg: '#E8F8F2' },
+                      { val: 3, label: 'Plutot d\'accord', color: '#185FA5', bg: '#E6F1FB' },
+                      { val: 2, label: 'Plutot pas d\'accord', color: '#E07B00', bg: '#FEF3E2' },
+                      { val: 1, label: 'Pas du tout d\'accord', color: '#C0392B', bg: '#FCECEA' },
                     ].map(opt => (
                       <button key={opt.val} onClick={() => repondre(opt.val)}
                         style={{ padding: '14px 20px', borderRadius: 10, border: `1px solid ${opt.bg}`, background: '#fff', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#0F2419', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -321,37 +367,27 @@ export default function EspaceJeune() {
               </div>
             )}
 
-            {/* ETAPE 3 — Resultats */}
+            {/* ETAPE 4 — Resultats */}
             {etapeEval === 'resultat' && profilDominant && (
               <div style={{ maxWidth: 640, margin: '0 auto' }}>
                 <div style={{ ...S.card, textAlign: 'center', padding: '32px', marginBottom: 20, background: 'linear-gradient(135deg, #0F2419, #1D9E75)' }}>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 8, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Profil RIASEC identifie</div>
                   <div style={{ fontSize: 48, fontWeight: 900, color: '#fff', marginBottom: 8 }}>{profilDominant}</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: 4 }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: 20 }}>
                     {profilDominant === 'R' ? 'Realiste' : profilDominant === 'I' ? 'Investigateur' : profilDominant === 'A' ? 'Artistique' : profilDominant === 'S' ? 'Social' : profilDominant === 'E' ? 'Entrepreneur' : 'Conventionnel'}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>Score global: {scorePct}%</div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {Object.entries(reponses).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-                      <div key={k} style={{ padding: '6px 14px', borderRadius: 20, background: k === profilDominant ? '#E07B00' : 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 12, fontWeight: 600 }}>
-                        {k}: {Math.round((v / (QUESTIONS_RIASEC.filter(q => q.type === k).length * 3)) * 100)}%
-                      </div>
-                    ))}
                   </div>
                 </div>
 
-                {/* Restitution selon parcours */}
                 {parcours === 'scolaire' && METIERS_SCOLAIRES[profilDominant] && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ ...S.card, borderLeft: '4px solid #6B3FA0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                         <School size={20} color="#6B3FA0" />
                         <div style={{ fontWeight: 700, color: '#0F2419', fontSize: 16 }}>Orientation Scolaire</div>
-                        <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#F0EAF8', color: '#6B3FA0', fontWeight: 600, marginLeft: 'auto' }}>Parcours Scolaire</span>
                       </div>
-                      <p style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 16, lineHeight: 1.6 }}>{METIERS_SCOLAIRES[profilDominant].description}</p>
+                      <p style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 16 }}>{METIERS_SCOLAIRES[profilDominant].description}</p>
                       <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B3FA0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filieres recommandees en CI</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B3FA0', marginBottom: 8, textTransform: 'uppercase' }}>Filieres recommandees</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {METIERS_SCOLAIRES[profilDominant].filieres.map(f => (
                             <span key={f} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, background: '#F0EAF8', color: '#6B3FA0', fontWeight: 500 }}>{f}</span>
@@ -359,71 +395,43 @@ export default function EspaceJeune() {
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B3FA0', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Etablissements partenaires YIRA</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B3FA0', marginBottom: 8, textTransform: 'uppercase' }}>Etablissements partenaires YIRA</div>
                         {METIERS_SCOLAIRES[profilDominant].etablissements.map((e, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < METIERS_SCOLAIRES[profilDominant].etablissements.length - 1 ? '1px solid #F0F4F2' : 'none' }}>
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < 2 ? '1px solid #F0F4F2' : 'none' }}>
                             <BookOpen size={14} color="#6B3FA0" />
                             <span style={{ fontSize: 13, color: '#0F2419', fontWeight: 500 }}>{e}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#E8F8F2', color: '#1D9E75', fontWeight: 600 }}>Partenaire</span>
                           </div>
                         ))}
                       </div>
-                    </div>
-                    <div style={{ ...S.card, background: '#E8F8F2', border: '1px solid #A8DCC8' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0F6E56', marginBottom: 4 }}>Prochaine etape</div>
-                      <div style={{ fontSize: 13, color: '#1D9E75' }}>Votre conseiller YIRA va elaborer votre Plan d'Insertion Individualisé (PII) et prendre contact avec l'etablissement choisi.</div>
                     </div>
                   </div>
                 )}
 
                 {parcours === 'professionnel' && METIERS_PRO[profilDominant] && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Filiere insertion */}
                     <div style={{ ...S.card, background: FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].bg, border: `2px solid ${FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].color}` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <CheckCircle size={20} color={FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].color} />
-                        <div style={{ fontWeight: 700, color: '#0F2419', fontSize: 15 }}>{FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].label}</div>
+                        <div style={{ fontWeight: 700, color: '#0F2419' }}>{FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].label}</div>
                       </div>
-                      <div style={{ fontSize: 13, color: '#6B8F7A' }}>{FILIERES_INSERTION[METIERS_PRO[profilDominant].filiere].desc}</div>
                     </div>
-
                     <div style={{ ...S.card, borderLeft: '4px solid #E07B00' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                         <Briefcase size={20} color="#E07B00" />
                         <div style={{ fontWeight: 700, color: '#0F2419', fontSize: 16 }}>Insertion Professionnelle</div>
-                        <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: '#FEF3E2', color: '#E07B00', fontWeight: 600, marginLeft: 'auto' }}>Parcours Pro</span>
                       </div>
-                      <p style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 16, lineHeight: 1.6 }}>{METIERS_PRO[profilDominant].description}</p>
+                      <p style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 16 }}>{METIERS_PRO[profilDominant].description}</p>
                       <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#E07B00', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Metiers cibles</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#E07B00', marginBottom: 8, textTransform: 'uppercase' }}>Metiers cibles</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {METIERS_PRO[profilDominant].metiers.map(m => (
                             <span key={m} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, background: '#FEF3E2', color: '#E07B00', fontWeight: 500 }}>{m}</span>
                           ))}
                         </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#E07B00', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employeurs partenaires YIRA</div>
-                        {METIERS_PRO[profilDominant].employeurs.map((e, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < METIERS_PRO[profilDominant].employeurs.length - 1 ? '1px solid #F0F4F2' : 'none' }}>
-                            <Wrench size={14} color="#E07B00" />
-                            <span style={{ fontSize: 13, color: '#0F2419', fontWeight: 500 }}>{e}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#FEF3E2', color: '#E07B00', fontWeight: 600 }}>DRH Partenaire</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ ...S.card, background: '#E8F8F2', border: '1px solid #A8DCC8' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0F6E56', marginBottom: 4 }}>Prochaine etape</div>
-                      <div style={{ fontSize: 13, color: '#1D9E75' }}>Votre profil anonymise sera transmis aux DRH partenaires. Votre conseiller YIRA vous accompagne dans les 48h.</div>
                     </div>
                   </div>
                 )}
-
-                <button onClick={() => { setEtapeEval('filtre'); setParcours(null); setQIndex(0); setReponses({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }); }}
-                  style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#F0F4F2', color: '#6B8F7A', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer', marginTop: 16 }}>
-                  Refaire l'evaluation
-                </button>
               </div>
             )}
           </div>
@@ -446,11 +454,10 @@ export default function EspaceJeune() {
                 <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0, background: e.statut === 'done' ? '#E8F8F2' : e.statut === 'active' ? '#E6F1FB' : '#F0F4F2', color: e.statut === 'done' ? '#1D9E75' : e.statut === 'active' ? '#185FA5' : '#9DB5AB' }}>
                   {e.statut === 'done' ? <CheckCircle size={18} /> : i + 1}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div>
                   <div style={{ fontSize: 14, fontWeight: e.statut === 'pending' ? 400 : 600, color: e.statut === 'pending' ? '#9DB5AB' : '#0F2419' }}>{e.etape}</div>
                   <div style={{ fontSize: 12, color: e.statut === 'done' ? '#1D9E75' : e.statut === 'active' ? '#185FA5' : '#C8D8D0' }}>{e.statut === 'done' ? 'Termine' : e.statut === 'active' ? 'En cours' : 'A venir'}</div>
                 </div>
-                {e.statut !== 'pending' && <ChevronRight size={16} color="#C8D8D0" />}
               </div>
             ))}
           </div>
@@ -460,7 +467,7 @@ export default function EspaceJeune() {
         {tab === 'carte' && (
           <div style={{ maxWidth: 360, margin: '0 auto' }}>
             <div style={{ borderRadius: 20, padding: '28px 24px', background: 'linear-gradient(135deg, #0F2419 0%, #1D9E75 60%, #E07B00 100%)', marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32 }}>
                 <div>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>YIRA Africa</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Carte de Competences</div>
@@ -477,17 +484,7 @@ export default function EspaceJeune() {
               )}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>Code YIRA</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>{codeYira || 'YIR-2026-XXXXX'}</div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>Statut</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{profilDominant ? 'Evalue' : 'Inscrit'}</div></div>
-                <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>Pays</div><div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>CI</div></div>
-              </div>
-            </div>
-            <div style={{ ...S.card, textAlign: 'center', padding: 24 }}>
-              <div style={{ fontSize: 13, color: '#6B8F7A', marginBottom: 12 }}>QR Code de verification</div>
-              <div style={{ width: 100, height: 100, background: '#F0F4F2', borderRadius: 12, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 11, color: '#9DB5AB', textAlign: 'center', padding: 8 }}>Disponible apres certification</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: 1 }}>{codeYira || codeRecherche || 'Y-CI-ABJ-2026-XXXXXX'}</div>
               </div>
             </div>
           </div>
