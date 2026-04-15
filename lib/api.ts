@@ -1,7 +1,10 @@
 ﻿const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://yira-api-production.up.railway.app/api/v1';
 
 function getHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('yira_token') : null;
+  let token: string | null = null;
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    try { token = localStorage.getItem('yira_token'); } catch {}
+  }
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -15,20 +18,12 @@ export const api = {
     return res.json();
   },
   post: async (url: string, body: any) => {
-    const res = await fetch(`${BASE}${url}`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(body)
-    });
+    const res = await fetch(`${BASE}${url}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
   put: async (url: string, body: any) => {
-    const res = await fetch(`${BASE}${url}`, {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(body)
-    });
+    const res = await fetch(`${BASE}${url}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
@@ -52,13 +47,14 @@ export const endpoints = {
     stats:         '/admin/stats',
   },
   jeune: {
-    profil:    '/jeune/profil',
-    test:      '/jeune/test-result',
-    filieres:  '/jeune/filieres',
+    profil:   '/jeune/profil',
+    test:     '/jeune/test-result',
+    filieres: '/jeune/filieres',
   },
-  pays: '/pays',
+  pays:  '/pays',
   stats: '/stats',
+};
+
 export async function getFilieres(pays: string = 'CI') {
   return api.get(`/filieres?pays=${pays}`);
 }
-};
