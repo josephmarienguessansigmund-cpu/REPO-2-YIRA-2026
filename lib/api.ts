@@ -70,10 +70,20 @@ export const endpoints = {
     quiz: '/admin/quiz',
     pays: '/admin/pays',
   },
+
+  filieres: {
+  list: '/filieres',
+  },
+
   carte: {
     get: (code: string) => `/carte/${code}`,
     creer: '/carte/creer',
   },
+
+  export async function getFilieres(pays?: string) {
+  return api.get(`${endpoints.filieres.list}?pays=${pays ?? TENANT}`);
+  }
+
   ia: {
     orientation: '/ia/orientation',
     coaching: '/ia/coaching',
