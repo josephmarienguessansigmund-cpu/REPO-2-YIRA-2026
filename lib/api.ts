@@ -58,4 +58,7 @@ export const endpoints = {
   },
   pays: '/pays',
   stats: '/stats',
+export async function getFilieres(pays: string = 'CI') {
+  return api.get(`/filieres?pays=${pays}`);
+}
 };
